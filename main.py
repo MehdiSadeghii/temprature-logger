@@ -1,21 +1,18 @@
-import time
 import paho.mqtt.client as mqtt
 import json
-import threading as th
 import csv
-import pandas as pd
+
 
 username = "sadeghi"
 password = "pbreak1375"
 broker = "185.2.14.188"
 port = 1883
 cnt = 0
+_flag = False
 
 dht_topic = "application/0c4fa261-3881-4b18-a43e-b11a255fa566/device/70b3d57ed00551a4/command/down"
 dht_topic_status = "application/0c4fa261-3881-4b18-a43e-b11a255fa566/device/70b3d57ed00551a4/event/up"
 thermostat_topic = "b47122e3-023a-4324-97e1-0bcef239de68/4L0k3/oShJt/bTOzr/status"
-global dhtRequest
-global flag, temp, hum
 
 
 def connect_mqtt(id):
@@ -32,55 +29,51 @@ def connect_mqtt(id):
     return client
 
 
-def subscribe(client: mqtt):
-    def on_message(client, userdata, msg):
-        print(f"Received `{msg.payload.decode()}` from `{msg.topic}` topic")
-        data = json.loads(msg.payload.decode())
-        if msg.topic == thermostat_topic:
-            temp = data["temperature"]
-            hum = data["humidity"]
-            flag = True
-            print("DHT Request Format:", dhtRequest)
+def on_message(client, userdata, msg):
+    print(f"Received `{msg.payload.decode()}` from `{msg.topic}` topic")
+    handle_payload(msg)
+
+
+def handle_payload(msg):
+    global cnt, _flag, temp, hum
+    data = json.loads(msg.payload.decode())
+    if msg.topic == thermostat_topic:
+        cnt += 1
+        temp = data["temperature"]
+        hum = data["humidity"]
+        print("cnt: ", cnt)
+        if cnt == 6:
+            cnt = 0
+            _flag = True
             client.publish(dht_topic, dhtRequest)
-
-        if msg.topic == dht_topic_status and flag:
-            flag = False
-            dht_temp = data["object"]["Temperature"]["value"]
-            dht_humidity = data["object"]["Humidity"]["value"]
+    if msg.topic == dht_topic_status and _flag == True:
+        _flag = False
+        dht_temp = data["object"]["Temperature"]["value"]
+        dht_humidity = data["object"]["Humidity"]["value"]
+        print(dht_temp,dht_humidity)
+        with open('tempreture.csv', 'a') as file:
+            writer = csv.writer(file)
             writer.writerow([temp, dht_temp, hum, dht_humidity])
-            print("cant decode payload")
+        # print("cant decode payload")
 
+
+def subscribe(client: mqtt):
     client.subscribe("#")
     client.on_message = on_message
 
 
 def run():
     subscribe(client)
-    client.publish(dht_topic)
+    # client.publish(dht_topic)
     client.loop_forever()
 
 
-def sctn():
-    print("timer")
-    _timer = th.Timer(10, sctn)
-    _timer.start()
+dhtRequest = {"confirmed": False, "fPort": 1, "data": "AgQ=", "devEui": "70b3d57ed00551a4"}
+dhtRequest = json.dumps(dhtRequest)
 
+with open('tempreture.csv', 'a') as file:
+    writer = csv.writer(file)
+    writer.writerow(["Thermostat temp", "DHT Temp", "Thermostat Hum", "DHT hum"])
 
-def tempreture_logger(recieved):
-    if recieved == "thermostat":
-        msg = {"confirmed": False, "fPort": 1, "data": "AgQ=", "devEui": "70b3d57ed00551a4"}
-        msg = json.dumps(msg)
-        client.publish(dht_topic, msg)
-
-
-if __name__ == '__main__':
-    dhtRequest = {"confirmed": False, "fPort": 1, "data": "AgQ=", "devEui": "70b3d57ed00551a4"}
-    dhtRequest = json.dumps(dhtRequest)
-    print(dhtRequest)
-    with open('tempreture.csv', 'w+') as file:
-        writer = csv.writer(file)
-        writer.writerow(["Thermostat temp", "DHT Temp", "", "Thermostat Hum", "DHT hum"])
-    _timer = th.Timer(10, sctn)
-    client = connect_mqtt("DHT_Temp")
-    _timer.start()
-    run()
+client = connect_mqtt("DHT_Temp")
+run()
