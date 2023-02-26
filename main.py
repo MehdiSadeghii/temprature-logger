@@ -2,7 +2,6 @@ import paho.mqtt.client as mqtt
 import json
 import csv
 
-
 username = "sadeghi"
 password = "pbreak1375"
 broker = "185.2.14.188"
@@ -46,14 +45,14 @@ def handle_payload(msg):
             cnt = 0
             _flag = True
             client.publish(dht_topic, dhtRequest)
-    if msg.topic == dht_topic_status and _flag == True:
+    if msg.topic == dht_topic_status and _flag is True:
         _flag = False
         dht_temp = data["object"]["Temperature"]["value"]
         dht_humidity = data["object"]["Humidity"]["value"]
-        print(dht_temp,dht_humidity)
-        with open('tempreture.csv', 'a') as file:
-            writer = csv.writer(file)
-            writer.writerow([temp, dht_temp, hum, dht_humidity])
+        print("LoRA", dht_temp, dht_humidity)
+        with open('tempreture.csv', 'a') as _file:
+            _writer = csv.writer(_file)
+            _writer.writerow([temp, dht_temp, hum, dht_humidity])
         # print("cant decode payload")
 
 
@@ -71,7 +70,7 @@ def run():
 dhtRequest = {"confirmed": False, "fPort": 1, "data": "AgQ=", "devEui": "70b3d57ed00551a4"}
 dhtRequest = json.dumps(dhtRequest)
 
-with open('tempreture.csv', 'a') as file:
+with open('tempreture.csv', 'w') as file:
     writer = csv.writer(file)
     writer.writerow(["Thermostat temp", "DHT Temp", "Thermostat Hum", "DHT hum"])
 
